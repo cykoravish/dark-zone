@@ -1,5 +1,5 @@
 'use client';
-export const dynamic = "force-dynamic";
+import { Suspense } from 'react';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -8,7 +8,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { CheckCircle, Package, Truck } from 'lucide-react';
 
-export default function OrderConfirmationPage() {
+function OrderConfirmationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const orderNumber = searchParams.get('orderNumber');
@@ -159,4 +159,8 @@ export default function OrderConfirmationPage() {
       <Footer />
     </div>
   );
+}
+
+export default function OrderConfirmationPage() {
+  return <Suspense fallback={null}><OrderConfirmationContent /></Suspense>;
 }
