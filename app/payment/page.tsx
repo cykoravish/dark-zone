@@ -4,12 +4,12 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Copy, CheckCircle, Clock } from 'lucide-react';
 
 const UPI_ID = 'darkzone@upi'; // Replace with actual UPI ID
 
-export default function PaymentPage() {
+function PaymentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const orderNumber = searchParams.get('orderNumber');
@@ -259,4 +259,8 @@ export default function PaymentPage() {
       <Footer />
     </div>
   );
+}
+
+export default function PaymentPage() {
+  return <Suspense fallback={null}><PaymentContent /></Suspense>;
 }
