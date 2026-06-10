@@ -70,27 +70,18 @@ export default function AdminDashboard() {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Products</h1>
-            <p className="text-muted-foreground mt-1">Manage your product catalog</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Products</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your product catalog</p>
           </div>
-          <div className="flex gap-3">
-            <Link
-              href="/admin/products/new"
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Add Product
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg font-semibold hover:bg-secondary transition-colors"
-            >
-              <LogOut className="w-5 h-5" />
-              Logout
-            </button>
-          </div>
+          <Link
+            href="/admin/products/new"
+            className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors w-full sm:w-auto"
+          >
+            <Plus className="w-5 h-5" />
+            Add Product
+          </Link>
         </div>
 
         {/* Products Grid */}

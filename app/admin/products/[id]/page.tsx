@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
-import { ArrowLeft, Trash2, Save } from 'lucide-react';
+import { ArrowLeft, Trash2, Save, Upload, X } from 'lucide-react';
 import Link from 'next/link';
 
 interface ProductFormData {
   name: string;
   description: string;
   category: string;
-  price: number;
-  stock: number;
+  price: string;
+  stock: string;
   image: string;
   specifications: Record<string, string>;
 }
@@ -25,15 +25,17 @@ export default function ProductEditPage() {
     name: '',
     description: '',
     category: 'gear',
-    price: 0,
-    stock: 0,
-    image: 'https://via.placeholder.com/500x500',
+    price: '',
+    stock: '',
+    image: '',
     specifications: {},
   });
 
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -44,6 +46,8 @@ export default function ProductEditPage() {
 
     if (!isNew) {
       fetchProduct();
+    } else {
+      setIsLoading(false);
     }
   }, [router, isNew, params.id]);
 
@@ -60,12 +64,48 @@ export default function ProductEditPage() {
         return;
       }
 
+      if (!response.ok) throw new Error('Failed to load product');
+      
       const data = await response.json();
-      setFormData(data);
+      setFormData({
+        ...data,
+        price: String(data.price || ''),
+        stock: String(data.stock || ''),
+      });
+      setImagePreview(data.image || '');
     } catch (err) {
       setError('Failed to load product');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      setFormData((prev) => ({
+        ...prev,
+        image: data.url,
+      }));
+      setImagePreview(data.url);
+    } catch (err) {
+      setError('Failed to upload image');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -84,7 +124,7 @@ export default function ProductEditPage() {
     } else {
       setFormData((prev) => ({
         ...prev,
-        [name]: name === 'price' || name === 'stock' ? parseFloat(value) : value,
+        [name]: value,
       }));
     }
   };
@@ -95,6 +135,16 @@ export default function ProductEditPage() {
     setIsSubmitting(true);
 
     try {
+      if (!formData.name || !formData.description || !formData.image) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      const submitData = {
+        ...formData,
+        price: parseFloat(formData.price) || 0,
+        stock: parseInt(formData.stock) || 0,
+      };
+
       const method = isNew ? 'POST' : 'PUT';
       const url = isNew ? '/api/products' : `/api/products/${params.id}`;
 
@@ -104,7 +154,7 @@ export default function ProductEditPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('adminToken')}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       if (response.status === 401) {
@@ -144,6 +194,14 @@ export default function ProductEditPage() {
     }
   };
 
+  const removeImage = () => {
+    setFormData((prev) => ({
+      ...prev,
+      image: '',
+    }));
+    setImagePreview('');
+  };
+
   if (isLoading) {
     return (
       <AdminLayout>
@@ -156,98 +214,162 @@ export default function ProductEditPage() {
 
   return (
     <AdminLayout>
-      <div className="max-w-3xl">
+      <div className="w-full max-w-4xl mx-auto px-4 md:px-0">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
           <Link
             href="/admin/dashboard"
             className="flex items-center gap-2 text-primary hover:text-primary/80"
           >
             <ArrowLeft className="w-5 h-5" />
-            Back
+            <span className="hidden sm:inline">Back</span>
           </Link>
-          <h1 className="text-3xl font-bold text-foreground">
-            {isNew ? 'Add Product' : 'Edit Product'}
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            {isNew ? 'Add New Product' : 'Edit Product'}
           </h1>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-card rounded-lg border border-border p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-card rounded-lg border border-border p-4 sm:p-8 space-y-6">
           {error && (
-            <div className="p-4 bg-destructive/10 border border-destructive rounded-lg">
-              <p className="text-destructive text-sm">{error}</p>
+            <div className="p-4 bg-destructive/10 border border-destructive rounded-lg flex items-start gap-3">
+              <p className="text-destructive text-sm flex-1">{error}</p>
+              <button
+                type="button"
+                onClick={() => setError('')}
+                className="text-destructive hover:text-destructive/80"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           )}
 
-          {/* Basic Information */}
+          {/* Image Section */}
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-foreground">Basic Information</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Product Image</h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* Image Upload */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-3">
+                  Upload Product Image *
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={isUploading}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="flex items-center justify-center w-full p-6 border-2 border-dashed border-border rounded-lg bg-background hover:bg-muted/50 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <div className="text-center">
+                      <Upload className="w-8 h-8 text-primary mx-auto mb-2" />
+                      <p className="text-sm font-medium text-foreground">
+                        {isUploading ? 'Uploading...' : 'Click to upload image'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Image Preview */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-3">Preview</label>
+                {imagePreview ? (
+                  <div className="relative w-full bg-background rounded-lg border border-border overflow-hidden">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-48 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 p-1 bg-destructive/90 hover:bg-destructive text-white rounded-lg transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full h-48 bg-muted border border-border rounded-lg flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground">No image uploaded yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Basic Information */}
+          <div className="space-y-4 border-t border-border pt-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Basic Information</h2>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Product Name *</label>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Product Name *
+              </label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="e.g., Tactical Vest"
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                placeholder="e.g., Tactical Vest Pro"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Description *</label>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Product Description *
+              </label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 required
                 rows={4}
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                placeholder="Product description..."
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm"
+                placeholder="Describe your product features, specifications, and benefits..."
               ></textarea>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Category *</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Category *
+                </label>
                 <select
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                 >
                   <option value="weapons">Weapons</option>
-                  <option value="gear">Gear</option>
+                  <option value="gear">Gear & Equipment</option>
                   <option value="ammo">Ammunition</option>
                   <option value="accessories">Accessories</option>
                   <option value="vehicles">Vehicles</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Image URL</label>
-                <input
-                  type="url"
-                  name="image"
-                  value={formData.image}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="https://..."
-                />
-              </div>
             </div>
           </div>
 
           {/* Pricing & Stock */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-foreground">Pricing & Stock</h2>
+          <div className="space-y-4 border-t border-border pt-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Pricing & Inventory</h2>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Price (₹) *</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Price (₹) *
+                </label>
                 <input
                   type="number"
                   name="price"
@@ -255,13 +377,16 @@ export default function ProductEditPage() {
                   onChange={handleChange}
                   required
                   min="0"
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  step="0.01"
+                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   placeholder="0"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Stock Quantity *</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Stock Quantity *
+                </label>
                 <input
                   type="number"
                   name="stock"
@@ -269,7 +394,7 @@ export default function ProductEditPage() {
                   onChange={handleChange}
                   required
                   min="0"
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   placeholder="0"
                 />
               </div>
@@ -277,36 +402,48 @@ export default function ProductEditPage() {
           </div>
 
           {/* Specifications */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-foreground">Specifications</h2>
+          {Object.keys(formData.specifications).length > 0 && (
+            <div className="space-y-4 border-t border-border pt-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-foreground">Specifications</h2>
 
-            <div className="space-y-3">
-              {Object.entries(formData.specifications).map(([key, value]) => (
-                <div key={key} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={key}
-                    disabled
-                    className="flex-1 px-4 py-2 bg-muted border border-border rounded-lg text-foreground"
-                  />
-                  <input
-                    type="text"
-                    name={`spec_${key}`}
-                    value={value}
-                    onChange={handleChange}
-                    className="flex-1 px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-              ))}
+              <div className="space-y-3">
+                {Object.entries(formData.specifications).map(([key, value]) => (
+                  <div key={key} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">
+                        {key}
+                      </label>
+                      <input
+                        type="text"
+                        value={key}
+                        disabled
+                        className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">
+                        Value
+                      </label>
+                      <input
+                        type="text"
+                        name={`spec_${key}`}
+                        value={value}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Actions */}
-          <div className="flex gap-4 pt-4 border-t border-border">
+          <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              disabled={isSubmitting || isUploading}
+              className="flex-1 py-2.5 sm:py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <Save className="w-5 h-5" />
               {isSubmitting ? 'Saving...' : 'Save Product'}
@@ -317,7 +454,7 @@ export default function ProductEditPage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={isSubmitting}
-                className="px-6 py-2 border border-destructive text-destructive rounded-lg font-semibold hover:bg-destructive/10 disabled:opacity-50 transition-colors flex items-center gap-2"
+                className="flex-1 px-4 py-2.5 sm:py-3 border border-destructive text-destructive rounded-lg font-semibold hover:bg-destructive/10 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 <Trash2 className="w-5 h-5" />
                 Delete
