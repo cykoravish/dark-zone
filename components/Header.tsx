@@ -2,10 +2,32 @@
 
 import Link from 'next/link';
 import { ShoppingCart, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    const updateCartCount = () => {
+      try {
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const count = cart.reduce((total: number, item: any) => total + item.quantity, 0);
+        setCartCount(count);
+      } catch {
+        setCartCount(0);
+      }
+    };
+
+    updateCartCount();
+    window.addEventListener('storage', updateCartCount);
+    window.addEventListener('cartUpdated', updateCartCount);
+
+    return () => {
+      window.removeEventListener('storage', updateCartCount);
+      window.removeEventListener('cartUpdated', updateCartCount);
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border">
@@ -36,9 +58,16 @@ export default function Header() {
           <div className="flex items-center gap-4">
             <Link
               href="/cart"
-              className="relative flex items-center gap-2 px-4 py-2 rounded-md border border-border hover:bg-secondary transition-colors"
+              className="relative flex items-center gap-2 px-4 py-2 rounded-md border border-border hover:bg-secondary transition-colors group"
             >
-              <ShoppingCart className="w-5 h-5" />
+              <div className="relative">
+                <ShoppingCart className="w-5 h-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center group-hover:bg-primary/90 transition-colors">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                )}
+              </div>
               <span className="hidden sm:inline text-sm font-medium">Cart</span>
             </Link>
 

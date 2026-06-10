@@ -10,6 +10,7 @@ interface ProductFormData {
   name: string;
   description: string;
   category: string;
+  customCategory: string;
   price: string;
   stock: string;
   image: string;
@@ -25,6 +26,7 @@ export default function ProductEditPage() {
     name: '',
     description: '',
     category: 'gear',
+    customCategory: '',
     price: '',
     stock: '',
     image: '',
@@ -36,6 +38,7 @@ export default function ProductEditPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const [imagePreview, setImagePreview] = useState('');
+  const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload');
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -71,6 +74,7 @@ export default function ProductEditPage() {
         ...data,
         price: String(data.price || ''),
         stock: String(data.stock || ''),
+        customCategory: '',
       });
       setImagePreview(data.image || '');
     } catch (err) {
@@ -141,6 +145,7 @@ export default function ProductEditPage() {
 
       const submitData = {
         ...formData,
+        category: formData.category === 'custom' ? formData.customCategory : formData.category,
         price: parseFloat(formData.price) || 0,
         stock: parseInt(formData.stock) || 0,
       };
@@ -248,34 +253,75 @@ export default function ProductEditPage() {
           <div className="space-y-4">
             <h2 className="text-lg sm:text-xl font-semibold text-foreground">Product Image</h2>
 
+            {/* Image Mode Tabs */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setImageMode('upload')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  imageMode === 'upload'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-foreground hover:bg-muted'
+                }`}
+              >
+                Upload File
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageMode('url')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  imageMode === 'url'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-foreground hover:bg-muted'
+                }`}
+              >
+                Image URL
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* Image Upload */}
+              {/* Upload or URL Input */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-3">
-                  Upload Product Image *
+                  {imageMode === 'upload' ? 'Upload Product Image *' : 'Paste Image URL *'}
                 </label>
-                <div className="relative">
+                
+                {imageMode === 'upload' ? (
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={isUploading}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label
+                      htmlFor="image-upload"
+                      className="flex items-center justify-center w-full p-6 border-2 border-dashed border-border rounded-lg bg-background hover:bg-muted/50 cursor-pointer transition-colors disabled:opacity-50"
+                    >
+                      <div className="text-center">
+                        <Upload className="w-8 h-8 text-primary mx-auto mb-2" />
+                        <p className="text-sm font-medium text-foreground">
+                          {isUploading ? 'Uploading...' : 'Click to upload image'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
+                      </div>
+                    </label>
+                  </div>
+                ) : (
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={isUploading}
-                    className="hidden"
-                    id="image-upload"
+                    type="url"
+                    name="image"
+                    value={formData.image}
+                    onChange={(e) => {
+                      handleChange(e);
+                      setImagePreview(e.target.value);
+                    }}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                    placeholder="https://example.com/image.jpg"
                   />
-                  <label
-                    htmlFor="image-upload"
-                    className="flex items-center justify-center w-full p-6 border-2 border-dashed border-border rounded-lg bg-background hover:bg-muted/50 cursor-pointer transition-colors disabled:opacity-50"
-                  >
-                    <div className="text-center">
-                      <Upload className="w-8 h-8 text-primary mx-auto mb-2" />
-                      <p className="text-sm font-medium text-foreground">
-                        {isUploading ? 'Uploading...' : 'Click to upload image'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
-                    </div>
-                  </label>
-                </div>
+                )}
               </div>
 
               {/* Image Preview */}
@@ -287,6 +333,7 @@ export default function ProductEditPage() {
                       src={imagePreview}
                       alt="Preview"
                       className="w-full h-48 object-cover"
+                      onError={() => setImagePreview('')}
                     />
                     <button
                       type="button"
@@ -298,7 +345,7 @@ export default function ProductEditPage() {
                   </div>
                 ) : (
                   <div className="w-full h-48 bg-muted border border-border rounded-lg flex items-center justify-center">
-                    <p className="text-sm text-muted-foreground">No image uploaded yet</p>
+                    <p className="text-sm text-muted-foreground">No image selected yet</p>
                   </div>
                 )}
               </div>
@@ -356,8 +403,26 @@ export default function ProductEditPage() {
                   <option value="ammo">Ammunition</option>
                   <option value="accessories">Accessories</option>
                   <option value="vehicles">Vehicles</option>
+                  <option value="custom">Custom Category</option>
                 </select>
               </div>
+
+              {formData.category === 'custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Custom Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="customCategory"
+                    value={formData.customCategory}
+                    onChange={handleChange}
+                    required={formData.category === 'custom'}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                    placeholder="e.g., Tactical Gear"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

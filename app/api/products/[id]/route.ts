@@ -12,11 +12,12 @@ function getAuthToken(req: NextRequest): string | null {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await connectDB();
-    const product = await Product.findById(params.id);
+    const product = await Product.findById(id);
 
     if (!product) {
       return NextResponse.json(
@@ -37,9 +38,10 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = getAuthToken(req);
     if (!token || !verifyToken(token)) {
       return NextResponse.json(
@@ -52,7 +54,7 @@ export async function PUT(
     const body = await req.json();
 
     const product = await Product.findByIdAndUpdate(
-      params.id,
+      id,
       body,
       { new: true }
     );
@@ -76,9 +78,10 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = getAuthToken(req);
     if (!token || !verifyToken(token)) {
       return NextResponse.json(
@@ -88,7 +91,7 @@ export async function DELETE(
     }
 
     await connectDB();
-    const product = await Product.findByIdAndDelete(params.id);
+    const product = await Product.findByIdAndDelete(id);
 
     if (!product) {
       return NextResponse.json(
