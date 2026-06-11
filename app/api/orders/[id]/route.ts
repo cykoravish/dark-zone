@@ -12,9 +12,10 @@ function getAuthToken(req: NextRequest): string | null {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: any
 ) {
   try {
+    const {id} = await params;
     const token = getAuthToken(req);
     if (!token || !verifyToken(token)) {
       return NextResponse.json(
@@ -24,7 +25,7 @@ export async function GET(
     }
 
     await connectDB();
-    const order = await Order.findById(params.id);
+    const order = await Order.findById(id);
 
     if (!order) {
       return NextResponse.json(
@@ -45,9 +46,10 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: any
 ) {
   try {
+     const {id} = await params;
     const token = getAuthToken(req);
     if (!token || !verifyToken(token)) {
       return NextResponse.json(
@@ -60,7 +62,7 @@ export async function PATCH(
     const body = await req.json();
 
     const order = await Order.findByIdAndUpdate(
-      params.id,
+      id,
       body,
       { new: true }
     );
