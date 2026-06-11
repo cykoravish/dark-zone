@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, Package, ShoppingCart, Mail, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Mail, Settings, Menu, X, LogOut } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
@@ -38,6 +38,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/dashboard', label: 'Products', icon: Package },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/messages', label: 'Messages', icon: Mail },
+    { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
   if (!isAuthenticated) return null;

@@ -7,7 +7,14 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
 import { Copy, CheckCircle, Clock } from 'lucide-react';
 
-const UPI_ID = 'darkzone@upi'; // Replace with actual UPI ID
+interface PaymentSettings {
+  upiId: string;
+  qrCodeUrl: string;
+  shippingCost: number;
+  gstPercentage: number;
+  businessName: string;
+  contactEmail: string;
+}
 
 function PaymentContent() {
   const searchParams = useSearchParams();
@@ -17,12 +24,32 @@ function PaymentContent() {
   const [copied, setCopied] = useState(false);
   const [referenceId, setReferenceId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [settings, setSettings] = useState<PaymentSettings | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   useEffect(() => {
     if (!orderNumber || !amount) {
       router.push('/cart');
     }
   }, [orderNumber, amount, router]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        setSettings(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -71,6 +98,7 @@ function PaymentContent() {
   }
 
   const numericAmount = parseInt(amount);
+  const upiId = settings?.upiId || 'Loading...';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -113,8 +141,28 @@ function PaymentContent() {
 
               {/* UPI Details */}
               <div className="space-y-6">
+                {/* QR Code Section */}
+                {!isLoadingSettings && settings?.qrCodeUrl && (
+                  <div className="bg-background rounded-lg p-6 border border-primary/20">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">Scan QR Code to Pay</h3>
+                    <div className="flex justify-center mb-6">
+                      <div className="bg-white p-4 rounded-lg border border-border">
+                        <img
+                          src={settings.qrCodeUrl}
+                          alt="UPI QR Code"
+                          className="w-48 h-48 object-contain"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Scan this QR code with your UPI app to make payment
+                    </p>
+                  </div>
+                )}
+
+                {/* UPI Manual Payment */}
                 <div className="bg-background rounded-lg p-6 border border-primary/20">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Send Payment Using UPI</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-4">OR Send Payment Manually</h3>
 
                   <div className="space-y-4">
                     {/* UPI ID */}
@@ -122,11 +170,12 @@ function PaymentContent() {
                       <label className="block text-sm text-muted-foreground mb-2">UPI ID</label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1 px-4 py-3 bg-muted rounded-lg text-foreground font-mono text-center">
-                          {UPI_ID}
+                          {upiId}
                         </div>
                         <button
-                          onClick={() => copyToClipboard(UPI_ID)}
-                          className="p-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                          onClick={() => copyToClipboard(upiId)}
+                          disabled={isLoadingSettings}
+                          className="p-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
                         >
                           <Copy className="w-5 h-5" />
                         </button>
@@ -174,8 +223,8 @@ function PaymentContent() {
                         2
                       </div>
                       <div>
-                        <p className="text-foreground font-medium">Send money to the UPI ID above</p>
-                        <p className="text-sm text-muted-foreground">Copy or manually enter the UPI ID</p>
+                        <p className="text-foreground font-medium">Scan the QR code or enter UPI ID</p>
+                        <p className="text-sm text-muted-foreground">Use the QR code above or manually enter the UPI ID</p>
                       </div>
                     </li>
                     <li className="flex gap-4">
@@ -183,8 +232,8 @@ function PaymentContent() {
                         3
                       </div>
                       <div>
-                        <p className="text-foreground font-medium">Complete the payment</p>
-                        <p className="text-sm text-muted-foreground">You will receive a UPI reference ID</p>
+                        <p className="text-foreground font-medium">Enter the amount and complete payment</p>
+                        <p className="text-sm text-muted-foreground">Amount: ₹{numericAmount.toLocaleString('en-IN')}</p>
                       </div>
                     </li>
                     <li className="flex gap-4">
@@ -224,7 +273,7 @@ function PaymentContent() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-4 pt-4">
+                <div className="flex flex-col sm:flex-row gap-4 pt-4">
                   <Link
                     href="/cart"
                     className="flex-1 py-3 border border-primary text-primary rounded-lg font-semibold hover:bg-primary/5 transition-colors text-center"
@@ -247,7 +296,7 @@ function PaymentContent() {
               <p className="text-muted-foreground mb-4">Need help with payment?</p>
               <Link
                 href="/contact"
-                className="inline-block px-6 py-2 border border-primary text-primary rounded-lg font-semibold hover:bg-primary/5 transition-colors"
+                className="text-primary hover:text-primary/80 font-semibold"
               >
                 Contact Support
               </Link>
@@ -262,5 +311,9 @@ function PaymentContent() {
 }
 
 export default function PaymentPage() {
-  return <Suspense fallback={null}><PaymentContent /></Suspense>;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaymentContent />
+    </Suspense>
+  );
 }

@@ -24,12 +24,21 @@ interface FormData {
   postalCode: string;
 }
 
+interface Settings {
+  shippingCost: number;
+  gstPercentage: number;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<FormData>>({});
+  const [settings, setSettings] = useState<Settings>({
+    shippingCost: 50,
+    gstPercentage: 18,
+  });
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -46,8 +55,25 @@ export default function CheckoutPage() {
       return;
     }
     setCart(savedCart);
-    setIsLoading(false);
+    fetchSettings();
   }, [router]);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        setSettings({
+          shippingCost: data.shippingCost || 50,
+          gstPercentage: data.gstPercentage || 18,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Partial<FormData> = {};
@@ -82,8 +108,8 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     try {
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const shipping = subtotal > 10000 ? 0 : 500;
-      const tax = Math.round(subtotal * 0.18);
+      const shipping = subtotal > 10000 ? 0 : settings.shippingCost;
+      const tax = Math.round(subtotal * (settings.gstPercentage / 100));
       const total = subtotal + shipping + tax;
 
       const response = await fetch('/api/orders', {
@@ -122,8 +148,8 @@ export default function CheckoutPage() {
   }
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal > 10000 ? 0 : 500;
-  const tax = Math.round(subtotal * 0.18);
+  const shipping = subtotal > 10000 ? 0 : settings.shippingCost;
+  const tax = Math.round(subtotal * (settings.gstPercentage / 100));
   const total = subtotal + shipping + tax;
 
   return (
@@ -299,8 +325,8 @@ export default function CheckoutPage() {
                   <h2 className="text-xl font-semibold text-foreground">Order Summary</h2>
 
                   <div className="space-y-3 max-h-64 overflow-y-auto border-b border-border pb-4">
-                    {cart.map((item) => (
-                      <div key={item.id} className="flex justify-between text-sm">
+                    {cart.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-sm">
                         <span className="text-muted-foreground">
                           {item.name} x {item.quantity}
                         </span>
@@ -328,12 +354,12 @@ export default function CheckoutPage() {
                         )}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tax (18%)</span>
-                      <span className="text-foreground font-medium">
-                        ₹{tax.toLocaleString('en-IN')}
-                      </span>
-                    </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tax ({settings.gstPercentage}%)</span>
+                        <span className="text-foreground font-medium">
+                          ₹{tax.toLocaleString('en-IN')}
+                        </span>
+                      </div>
                   </div>
 
                   <div className="flex justify-between items-center">

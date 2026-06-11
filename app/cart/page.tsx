@@ -14,15 +14,41 @@ interface CartItem {
   quantity: number;
 }
 
+interface Settings {
+  shippingCost: number;
+  gstPercentage: number;
+}
+
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [settings, setSettings] = useState<Settings>({
+    shippingCost: 50,
+    gstPercentage: 18,
+  });
 
   useEffect(() => {
     const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
     setCart(savedCart);
-    setIsLoading(false);
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        setSettings({
+          shippingCost: data.shippingCost || 50,
+          gstPercentage: data.gstPercentage || 18,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const updateQuantity = (id: string, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -45,8 +71,8 @@ export default function CartPage() {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal > 10000 ? 0 : 500;
-  const tax = Math.round(subtotal * 0.18);
+  const shipping = subtotal > 10000 ? 0 : settings.shippingCost;
+  const tax = Math.round(subtotal * (settings.gstPercentage / 100));
   const total = subtotal + shipping + tax;
 
   if (isLoading) {
@@ -81,8 +107,8 @@ export default function CartPage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Cart Items */}
                 <div className="lg:col-span-2 space-y-4">
-                  {cart.map((item) => (
-                    <div key={item.id} className="bg-card rounded-lg border border-border p-6 flex gap-6">
+                  {cart.map((item, idx) => (
+                    <div key={idx} className="bg-card rounded-lg border border-border p-6 flex gap-6">
                       {/* Product Image */}
                       <div className="w-24 h-24 bg-gradient-to-br from-primary/10 to-transparent rounded-lg overflow-hidden flex-shrink-0">
                         <img
@@ -160,7 +186,7 @@ export default function CartPage() {
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tax (18%)</span>
+                        <span className="text-muted-foreground">Tax ({settings.gstPercentage}%)</span>
                         <span className="text-foreground font-medium">
                           ₹{tax.toLocaleString('en-IN')}
                         </span>
@@ -189,7 +215,7 @@ export default function CartPage() {
 
                     <Link
                       href="/products"
-                      className="w-full py-3 border border-primary text-primary rounded-lg font-semibold hover:bg-primary/5 transition-colors text-center"
+                      className="w-full py-3 px-4 border border-primary text-primary rounded-lg font-semibold hover:bg-primary/5 transition-colors text-center block"
                     >
                       Continue Shopping
                     </Link>
